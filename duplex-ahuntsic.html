@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Duplex Ahuntsic</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#0c0e14;font-family:Georgia,serif}
+    ::-webkit-scrollbar{width:6px;height:6px}
+    ::-webkit-scrollbar-track{background:#131620}
+    ::-webkit-scrollbar-thumb{background:#2a2f3f;border-radius:3px}
+    #root{min-height:100vh}
+    #loading{color:#d4a853;font-family:monospace;padding:40px;font-size:14px}
+  </style>
+</head>
+<body>
+<div id="root"><div id="loading">⏳ Chargement...</div></div>
+
+<!-- Step 1: Load React first, synchronously -->
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+
+<!-- Step 2: Load Babel standalone -->
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+
+<!-- Step 3: App code as text/babel - Babel processes this after loading -->
+<script type="text/babel" data-presets="react">
+
+const fmt = (n) => new Intl.NumberFormat("fr-CA", { style: "currency", currency: "CAD" }).format(n ?? 0);
+const today = () => new Date().toISOString().slice(0, 10);
+
+const C = {
+  bg: "#0c0e14", surface: "#131620", surface2: "#1a1e2e",
+  border: "#232840", gold: "#d4a853", goldLight: "#f0c97a",
+  text: "#e4e0d8", textMuted: "#6b7490", textDim: "#9095b0",
+  green: "#34d399", red: "#f87171", blue: "#60a5fa",
+  orange: "#fb923c", purple: "#a78bfa",
+};
+
+const STATUS_COLORS = { "Planifié": C.blue, "En cours": C.orange, "Terminé": C.green, "Annulé": C.red };
+const CATEGORIES_TRAVAUX = ["Plomberie","Électricité","Toiture","Isolation","Fenêtres/Portes","Cuisine","Salle de bain","Fondation","Revêtement extérieur","Chauffage/Clim","Peinture","Planchers","Autre"];
+
+const G = {
+  card: { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 24, marginBottom: 20 },
+  sectionTitle: { fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: C.textMuted, fontFamily: "monospace", marginBottom: 18 },
+  input: { background: C.bg, border: `1px solid ${C.border}`, borderRadius: 7, padding: "9px 13px", color: C.text, fontSize: 14, fontFamily: "Georgia, serif", width: "100%", boxSizing: "border-box" },
+  select: { background: C.bg, border: `1px solid ${C.border}`, borderRadius: 7, padding: "9px 13px", color: C.text, fontSize: 14, fontFamily: "Georgia, serif", width: "100%", boxSizing: "border-box" },
+  label: { fontSize: 11, color: C.textMuted, marginBottom: 5, display: "block", fontFamily: "monospace", letterSpacing: "0.07em", textTransform: "uppercase" },
+  btnGold: { background: `linear-gradient(135deg, ${C.gold}, ${C.goldLight})`, color: C.bg, border: "none", borderRadius: 7, padding: "10px 22px", cursor: "pointer", fontSize: 13, fontWeight: "bold" },
+  btnGhost: (active) => ({ background: active ? `${C.gold}18` : "none", border: `1px solid ${active ? C.gold : C.border}`, color: active ? C.gold : C.textMuted, borderRadius: 7, padding: "8px 16px", cursor: "pointer", fontSize: 12, fontFamily: "monospace" }),
+  btnDanger: { background: "none", border: "none", color: C.red, cursor: "pointer", fontSize: 18, padding: "0 4px", opacity: 0.7 },
+  btnAdd: { background: "none", border: `1px dashed ${C.border}`, color: C.textMuted, borderRadius: 7, padding: "9px 16px", cursor: "pointer", fontSize: 13, width: "100%", marginTop: 10 },
+  th: { textAlign: "left", padding: "9px 12px", fontSize: 11, color: C.textMuted, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "monospace", borderBottom: `1px solid ${C.border}` },
+  td: { padding: "10px 12px", fontSize: 14, borderBottom: `1px solid ${C.border}`, verticalAlign: "middle" },
+  badge: (color) => ({ display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontFamily: "monospace", background: `${color}20`, color, border: `1px solid ${color}40` }),
+  grid2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 },
+  statCard: (color) => ({ background: C.surface, border: `1px solid ${color}30`, borderRadius: 12, padding: "20px 22px" }),
+  statLabel: { fontSize: 11, letterSpacing: "0.1em", color: C.textMuted, textTransform: "uppercase", fontFamily: "monospace" },
+  statVal: (color) => ({ fontSize: 24, color, fontWeight: "normal", marginTop: 6 }),
+};
+
+const INIT_BUDGET = {
+  revenus: [
+    { id: 1, label: "Loyer logement du haut — Lya Véga Marcotte", montant: 1500 },
+    { id: 2, label: "Loyer logement du bas (vous)", montant: 0 },
+  ],
+  depenses: [
+    { id: 1, label: "Hypothèque", montant: 1720, cat: "fixe" },
+    { id: 2, label: "Taxes municipales", montant: 432, cat: "fixe" },
+    { id: 3, label: "Taxes scolaires", montant: 65, cat: "fixe" },
+    { id: 4, label: "Assurance habitation", montant: 175, cat: "fixe" },
+    { id: 5, label: "Électricité (Hydro-Québec)", montant: 210, cat: "utilitaire" },
+    { id: 6, label: "Gaz naturel (Énergir)", montant: 90, cat: "utilitaire" },
+    { id: 7, label: "Internet", montant: 75, cat: "utilitaire" },
+    { id: 8, label: "Entretien / réserve", montant: 200, cat: "entretien" },
+  ],
+};
+
+// Achat: 925 000$ | Cashdown: 600 000$ | Solde hypothèque: 325 000$
+const INIT_HYP = { solde: 325000, taux: 5.14, amortissement: 25, valeurMarchande: 925000 };
+
+const INIT_LOC = {
+  nom: "Lya Véga Marcotte", tel: "", email: "",
+  dateEntree: "2026-08-01", dateRenouvellement: "2027-07-31",
+  loyerActuel: 1500, logement: "Logement du haut",
+  paiements: [],
+  hausses: [],
+};
+
+const INIT_HYDRO = [];
+
+const INIT_TRAVAUX = [
+  { id: 2, titre: "Inspection toiture", cat: "Toiture", date: "2024-05-01", cout: 350, statut: "Terminé", entrepreneur: "Toitures Montréal Inc.", notes: "Bardeaux OK, ~5 ans restants", logement: "commun", garantie: "", deductible: true },
+  { id: 3, titre: "Mise aux normes panneau électrique", cat: "Électricité", date: "2026-09-01", cout: 3800, statut: "Planifié", entrepreneur: "", notes: "Obtenir 3 soumissions", logement: "commun", garantie: "", deductible: true },
+];
+
+const INIT_DOCS = [
+  { id: 0, nom: "📋 Acte de vente chez le notaire", type: "Légal", dateExpiration: "2026-06-08", alerte: true, notes: "Achat 925 000$ · Cashdown 600 000$ · Hypothèque 325 000$" },
+  { id: 1, nom: "Bail logement du haut — Lya Véga Marcotte", type: "Bail", dateExpiration: "2027-07-31", alerte: true, notes: "Entrée le 1er août 2026 · 1 500$/mois" },
+  { id: 2, nom: "Assurance habitation", type: "Assurance", dateExpiration: "", alerte: true, notes: "À souscrire avant l'entrée du locataire" },
+  { id: 3, nom: "Certificat de localisation", type: "Légal", dateExpiration: "", alerte: false, notes: "" },
+  { id: 4, nom: "Rapport d'inspection pré-achat", type: "Inspection", dateExpiration: "", alerte: false, notes: "" },
+  { id: 5, nom: "Garantie toiture", type: "Garantie", dateExpiration: "2026-05-01", alerte: true, notes: "Toitures Montréal Inc." },
+];
+
+const OFFRES = [
+  { cat: "Internet", items: [
+    { nom: "Fizz", prix: 49, detail: "120 Mbps, sans engagement" },
+    { nom: "TekSavvy", prix: 62, detail: "300 Mbps, réseau Videotron" },
+    { nom: "Videotron", prix: 75, detail: "400 Mbps, bundle TV possible" },
+    { nom: "Bell Fibe", prix: 90, detail: "1.5 Gbps, fibre, promo 2 ans" },
+  ]},
+  { cat: "Assurance habitation", items: [
+    { nom: "La Capitale", prix: 145, detail: "Tarif syndicats/prof." },
+    { nom: "Belairdirect", prix: 158, detail: "Rabais multi-produit" },
+    { nom: "SSQ Assurances", prix: 162, detail: "Forte couverture dégâts eau" },
+    { nom: "Intact", prix: 175, detail: "Couverture complète duplex" },
+  ]},
+  { cat: "Électricité", items: [
+    { nom: "Hydro-Québec (Tarif DT)", prix: 185, detail: "Bihéroïque, heures creuses" },
+    { nom: "Hydro-Québec (Tarif D)", prix: 210, detail: "Tarif résidentiel standard" },
+  ]},
+  { cat: "Gaz naturel", items: [
+    { nom: "Énergir + thermopompe hybride", prix: 45, detail: "Si thermopompe installée" },
+    { nom: "Énergir (Tarif D1)", prix: 90, detail: "Tarif résidentiel de base" },
+  ]},
+];
+
+const SUBVENTIONS = [
+  { nom: "Rénoclimat — Thermopompe", montant: "jusqu'à 3 500 $", org: "Transition énergétique QC" },
+  { nom: "Rénoclimat — Isolation", montant: "jusqu'à 5 000 $", org: "Transition énergétique QC" },
+  { nom: "Hydro-Québec — Thermopompe", montant: "jusqu'à 1 500 $", org: "Hydro-Québec" },
+  { nom: "Hydro-Québec — Fenêtres/isolation", montant: "jusqu'à 750 $", org: "Hydro-Québec" },
+  { nom: "SCHL — RAP (remboursement REER)", montant: "jusqu'à 35 000 $", org: "SCHL" },
+  { nom: "Réno-Adaptation (personnes âgées)", montant: "jusqu'à 16 000 $", org: "SHQ" },
+];
+
+// Champ texte normal
+const Inp = ({ label, value, onChange, placeholder, type = "text" }) => (
+  <div>
+    {label && <label style={G.label}>{label}</label>}
+    <input
+      type={type === "number" ? "text" : type}
+      inputMode={type === "number" ? "decimal" : undefined}
+      style={G.input}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder || ""}
+    />
+  </div>
+);
+
+// Champ numérique — non-contrôlé (uncontrolled) pour éviter
+// toute interférence de React pendant la frappe.
+const NumInp = ({ label, value, onChange, placeholder }) => {
+  const ref = useRef(null);
+
+  // Sync la valeur affichée seulement quand value change ET que le champ
+  // n'est pas en cours d'édition.
+  useEffect(() => {
+    if (ref.current && ref.current !== document.activeElement) {
+      ref.current.value = (value === 0 || value === "") ? "" : String(value);
+    }
+  }, [value]);
+
+  const handleChange = (e) => {
+    // Remplace virgule par point en live sans bouger le curseur
+    const v = e.target.value;
+    const replaced = v.replace(",", ".");
+    if (v !== replaced) {
+      const pos = e.target.selectionStart;
+      e.target.value = replaced;
+      e.target.setSelectionRange(pos, pos);
+    }
+    // Rejette tout caractère invalide
+    if (!/^-?\d*\.?\d*$/.test(e.target.value)) {
+      e.target.value = v.replace(",", ".");
+    }
+  };
+
+  const handleBlur = (e) => {
+    const n = parseFloat(e.target.value);
+    if (!isNaN(n)) {
+      onChange(n);
+      e.target.value = String(n);
+    } else {
+      e.target.value = (value === 0 || value === "") ? "" : String(value);
+    }
+  };
+
+  return (
+    <div>
+      {label && <label style={G.label}>{label}</label>}
+      <input
+        ref={ref}
+        type="text"
+        inputMode="decimal"
+        style={G.input}
+        defaultValue={(value === 0 || value === "") ? "" : String(value)}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        placeholder={placeholder || "0"}
+      />
+    </div>
+  );
+};
+
+const Sel = ({ label, value, onChange, options }) => (
+  <div>
+    {label && <label style={G.label}>{label}</label>}
+    <select style={G.select} value={value} onChange={e => onChange(e.target.value)}>
+      {options.map(o => typeof o === "string"
+        ? <option key={o} value={o}>{o}</option>
+        : <option key={o.v} value={o.v}>{o.l}</option>)}
+    </select>
+  </div>
+);
+
+const StatCard = ({ label, value, color }) => (
+  <div style={G.statCard(color)}>
+    <div style={G.statLabel}>{label}</div>
+    <div style={G.statVal(color)}>{value}</div>
+  </div>
+);
+
+const STORAGE_KEY = "duplex_ahuntsic_v3";
+
+function DuplexApp() {
+  const [tab, setTab] = useState("tableau");
+  const [budget, setBudget] = useState(INIT_BUDGET);
+  const [hyp, setHyp] = useState(INIT_HYP);
+  const [loc, setLoc] = useState(INIT_LOC);
+  const [hydro, setHydro] = useState(INIT_HYDRO);
+  const [travaux, setTravaux] = useState(INIT_TRAVAUX);
+  const [docs, setDocs] = useState(INIT_DOCS);
+  const [savedMsg, setSavedMsg] = useState("⏳ Chargement...");
+  const [loaded, setLoaded] = useState(false);
+  const [showBackup, setShowBackup] = useState(false);
+  const [backupText, setBackupText] = useState("");
+
+  // ── Chargement initial depuis localStorage ──
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d.budget)  setBudget(d.budget);
+        if (d.hyp)     setHyp(d.hyp);
+        if (d.loc)     setLoc(d.loc);
+        if (d.hydro)   setHydro(d.hydro);
+        if (d.travaux) setTravaux(d.travaux);
+        if (d.docs)    setDocs(d.docs);
+        setSavedMsg("✓ Données chargées");
+      } else {
+        setSavedMsg("");
+      }
+    } catch { setSavedMsg(""); }
+    setLoaded(true);
+  }, []);
+
+  // ── Sauvegarde automatique dans localStorage ──
+  useEffect(() => {
+    if (!loaded) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ budget, hyp, loc, hydro, travaux, docs }));
+      setSavedMsg("✓ Sauvegardé");
+      setTimeout(() => setSavedMsg(""), 2000);
+    } catch { setSavedMsg("⚠ Erreur sauvegarde"); }
+  }, [budget, hyp, loc, hydro, travaux, docs]);
+
+  // ── Export : affiche le JSON à copier ──
+  const exportData = () => {
+    const data = JSON.stringify({ budget, hyp, loc, hydro, travaux, docs }, null, 2);
+    setBackupText(data);
+    setShowBackup(true);
+  };
+
+  // ── Import : lit le JSON collé ──
+  const importData = () => {
+    try {
+      const d = JSON.parse(backupText);
+      if (d.budget)  setBudget(d.budget);
+      if (d.hyp)     setHyp(d.hyp);
+      if (d.loc)     setLoc(d.loc);
+      if (d.hydro)   setHydro(d.hydro);
+      if (d.travaux) setTravaux(d.travaux);
+      if (d.docs)    setDocs(d.docs);
+      setShowBackup(false);
+      setBackupText("");
+      setSavedMsg("✓ Données importées!");
+      setTimeout(() => setSavedMsg(""), 2500);
+    } catch { setSavedMsg("⚠ JSON invalide"); }
+  };
+
+  // ── Réinitialiser ──
+  const resetAll = () => {
+    if (!window.confirm("Réinitialiser toutes les données aux valeurs par défaut?")) return;
+    setBudget(INIT_BUDGET); setHyp(INIT_HYP); setLoc(INIT_LOC);
+    setHydro(INIT_HYDRO); setTravaux(INIT_TRAVAUX); setDocs(INIT_DOCS);
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+  };
+
+  const [newTravail, setNT] = useState({ titre: "", cat: "Plomberie", date: today(), cout: "", statut: "Planifié", entrepreneur: "", notes: "", logement: "commun", garantie: "", deductible: true });
+  const [showTF, setSTF] = useState(false);
+  const [filterStatut, setFS] = useState("Tous");
+
+  const [newDoc, setND] = useState({ nom: "", type: "Bail", dateExpiration: "", alerte: false, notes: "" });
+  const [showDF, setSDF] = useState(false);
+
+  const [newPaie, setNP] = useState({ mois: today().slice(0, 7), montant: 1500, statut: "Payé", note: "" });
+  const [newHausse, setNH] = useState({ annee: new Date().getFullYear(), loyerAvant: 1500, loyerApres: "", dateAvis: today() });
+  const [newHydro, setNHydro] = useState({ mois: today().slice(0, 7), haut: "", bas: "" });
+  const totalRev = budget.revenus.reduce((s, r) => s + (+r.montant || 0), 0);
+  const totalDep = budget.depenses.reduce((s, d) => s + (+d.montant || 0), 0);
+  const cashflow = totalRev - totalDep;
+
+  // Hyp calcs
+  const hypCalc = useMemo(() => {
+    const P = hyp.solde, r = hyp.taux / 100 / 12, n = hyp.amortissement * 12;
+    const pmt = r > 0 ? P * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1) : P / n;
+    let solde = P, table = [];
+    for (let y = 1; y <= Math.min(10, hyp.amortissement); y++) {
+      let intAn = 0, capAn = 0;
+      for (let m = 0; m < 12; m++) {
+        const i = solde * r; intAn += i; capAn += (pmt - i); solde -= (pmt - i);
+      }
+      table.push({ annee: y, pmt: pmt * 12, interet: intAn, capital: capAn, solde: Math.max(solde, 0) });
+    }
+    return { pmt, capitalAn1: table[0]?.capital || 0, interetAn1: table[0]?.interet || 0, valeurNette: hyp.valeurMarchande - hyp.solde, table };
+  }, [hyp]);
+
+  // Fiscal calcs
+  const fiscal = useMemo(() => {
+    const depAn = totalDep * 12;
+    return {
+      depAn,
+      deductible: depAn * 0.5,
+      travauxDed: travaux.filter(t => t.statut === "Terminé" && t.deductible).reduce((s, t) => s + (+t.cout || 0), 0),
+    };
+  }, [totalDep, travaux]);
+
+  // Taxe bienvenue
+  const taxeBienvenue = useMemo(() => {
+    const v = hyp.valeurMarchande;
+    let t = 0;
+    t += Math.min(v, 58900) * 0.005;
+    if (v > 58900) t += Math.min(v - 58900, 235100) * 0.01;
+    if (v > 294000) t += Math.min(v - 294000, 206000) * 0.015;
+    if (v > 500000) t += Math.min(v - 500000, 500000) * 0.02;
+    if (v > 1000000) t += (v - 1000000) * 0.025;
+    return t;
+  }, [hyp.valeurMarchande]);
+
+  // Taxes Ahuntsic-Cartierville 2025 (taux officiels Ville de Montréal)
+  const taxesAhuntsic = useMemo(() => {
+    const v = hyp.valeurMarchande;
+    // Taux conseil municipal résidentiel ($/100$)
+    const fonciere   = v * 0.4638 / 100;
+    const artm       = v * 0.0072 / 100;
+    const voirie     = v * 0.0024 / 100;
+    // Taxes arrondissement Ahuntsic-Cartierville
+    const services   = v * 0.0422 / 100;
+    const invest     = v * 0.0306 / 100;
+    const municipal  = fonciere + artm + voirie + services + invest;
+    // Taxe scolaire 2025-2026 (exemption 25 000$, taux 0.08423$/100$)
+    const scolaire   = Math.max(v - 25000, 0) * 0.08423 / 100;
+    const total      = municipal + scolaire;
+    return {
+      fonciere, artm, voirie, services, invest, municipal, scolaire, total,
+      // 50% locatif
+      municipalDed: municipal * 0.5,
+      scolaireDed:  scolaire  * 0.5,
+      totalDed:     total     * 0.5,
+      // économies fiscales estimées
+      eco37: total * 0.5 * 0.37,
+      eco45: total * 0.5 * 0.45,
+      eco53: total * 0.5 * 0.53,
+    };
+  }, [hyp.valeurMarchande]);
+
+  const daysUntil = (d) => d ? Math.ceil((new Date(d) - new Date()) / 86400000) : null;
+  const alertDocs = docs.filter(d => d.alerte && d.dateExpiration && daysUntil(d.dateExpiration) !== null && daysUntil(d.dateExpiration) <= 90 && daysUntil(d.dateExpiration) >= 0);
+  const loysEnRetard = loc.paiements.filter(p => p.statut === "En retard");
+
+  // Budget helpers
+  const updB = (type, id, field, val) => setBudget(p => ({
+    ...p, [type]: p[type].map(i => i.id === id ? { ...i, [field]: val } : i)
+  }));
+  const addBI = (type) => setBudget(p => ({ ...p, [type]: [...p[type], { id: Date.now(), label: "Nouveau poste", montant: 0, cat: "divers" }] }));
+  const delBI = (type, id) => setBudget(p => ({ ...p, [type]: p[type].filter(i => i.id !== id) }));
+
+  const addTravail = () => {
+    if (!newTravail.titre) return;
+    setTravaux(p => [...p, { ...newTravail, id: Date.now(), cout: +newTravail.cout || 0 }]);
+    setNT({ titre: "", cat: "Plomberie", date: today(), cout: "", statut: "Planifié", entrepreneur: "", notes: "", logement: "commun", garantie: "", deductible: true });
+    setSTF(false);
+  };
+
+  const addDoc = () => {
+    if (!newDoc.nom) return;
+    setDocs(p => [...p, { ...newDoc, id: Date.now() }]);
+    setND({ nom: "", type: "Bail", dateExpiration: "", alerte: false, notes: "" });
+    setSDF(false);
+  };
+
+  const TABS = [
+    ["tableau", "🏠 Tableau de bord"],
+    ["budget", "💰 Budget"],
+    ["hypotheque", "🏦 Hypothèque"],
+    ["locataire", "👥 Locataire"],
+    ["travaux", "🔧 Travaux"],
+    ["energie", "⚡ Énergie"],
+    ["fiscal", "🧾 Fiscal"],
+    ["documents", "📋 Documents"],
+    ["offres", "🔍 Meilleures offres"],
+  ];
+
+  return (
+    <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: "Georgia, 'Times New Roman', serif", paddingBottom: 60 }}>
+
+      {/* HEADER */}
+      <div style={{ background: `linear-gradient(160deg, ${C.surface2} 0%, ${C.bg} 100%)`, borderBottom: `1px solid ${C.border}`, padding: "22px 24px 0" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
+          <div style={{ width: 44, height: 44, background: `linear-gradient(135deg, ${C.gold}, ${C.goldLight})`, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🏘</div>
+          <div>
+            <div style={{ fontSize: 20, color: C.text }}>Duplex Ahuntsic</div>
+            <div style={{ fontSize: 11, color: C.textMuted, fontFamily: "monospace", letterSpacing: "0.1em" }}>GESTION IMMOBILIÈRE · 2 LOGEMENTS</div>
+          </div>
+
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {/* Indicateur sauvegarde */}
+            {savedMsg && (
+              <span style={{ fontSize: 11, color: C.green, fontFamily: "monospace", transition: "opacity 0.3s" }}>{savedMsg}</span>
+            )}
+
+            {/* Alertes */}
+            {alertDocs.length > 0 && <div style={{ background: `${C.orange}18`, border: `1px solid ${C.orange}40`, borderRadius: 7, padding: "5px 12px", fontSize: 11, color: C.orange, fontFamily: "monospace" }}>⚠ {alertDocs.length} doc{alertDocs.length > 1 ? "s" : ""}</div>}
+            {loysEnRetard.length > 0 && <div style={{ background: `${C.red}18`, border: `1px solid ${C.red}40`, borderRadius: 7, padding: "5px 12px", fontSize: 11, color: C.red, fontFamily: "monospace" }}>🔴 loyer en retard</div>}
+
+            {/* Export */}
+            <button onClick={exportData} title="Exporter / sauvegarder les données" style={{ background: `${C.blue}18`, border: `1px solid ${C.blue}40`, borderRadius: 7, padding: "6px 12px", fontSize: 11, color: C.blue, cursor: "pointer", fontFamily: "monospace" }}>
+              ⬇ Exporter
+            </button>
+
+            {/* Import */}
+            <button onClick={() => { setBackupText(""); setShowBackup(true); }} title="Importer des données" style={{ background: `${C.purple}18`, border: `1px solid ${C.purple}40`, borderRadius: 7, padding: "6px 12px", fontSize: 11, color: C.purple, cursor: "pointer", fontFamily: "monospace" }}>
+              ⬆ Importer
+            </button>
+
+            {/* Reset */}
+            <button onClick={resetAll} title="Réinitialiser toutes les données" style={{ background: `${C.red}10`, border: `1px solid ${C.red}30`, borderRadius: 7, padding: "6px 12px", fontSize: 11, color: C.red, cursor: "pointer", fontFamily: "monospace" }}>
+              ↺ Reset
+            </button>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 0, overflowX: "auto" }}>
+          {TABS.map(([k, l]) => (
+            <button key={k} onClick={() => setTab(k)} style={{ padding: "10px 14px", background: "none", border: "none", borderBottom: `2px solid ${tab === k ? C.gold : "transparent"}`, color: tab === k ? C.gold : C.textMuted, cursor: "pointer", fontSize: 11, fontFamily: "monospace", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ padding: "24px", maxWidth: 1000, margin: "0 auto" }}>
+
+        {/* ═══ TABLEAU DE BORD ═══ */}
+        {tab === "tableau" && (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 20 }}>
+              <StatCard label="Cashflow mensuel" value={fmt(cashflow)} color={cashflow >= 0 ? C.green : C.red} />
+              <StatCard label="Cashflow annuel" value={fmt(cashflow * 12)} color={cashflow >= 0 ? C.green : C.red} />
+              <StatCard label="Valeur nette" value={fmt(hypCalc.valeurNette)} color={C.gold} />
+              <StatCard label="Capital remboursé/an" value={fmt(hypCalc.capitalAn1)} color={C.blue} />
+              <StatCard label="Taxes totales / an" value={fmt(taxesAhuntsic.total)} color={C.orange} />
+              <StatCard label="Déductions fiscales/an" value={fmt(fiscal.deductible + taxesAhuntsic.totalDed)} color={C.green} />
+            </div>
+
+            {alertDocs.map(d => (
+              <div key={d.id} style={{ ...G.card, borderColor: `${C.orange}40`, background: `${C.orange}08`, display: "flex", gap: 12, alignItems: "center", padding: "14px 18px" }}>
+                <span style={{ fontSize: 18 }}>⏰</span>
+                <div><strong style={{ color: C.orange }}>{d.nom}</strong><span style={{ color: C.textMuted, marginLeft: 10, fontSize: 13 }}>expire dans {daysUntil(d.dateExpiration)} jours ({d.dateExpiration})</span></div>
+              </div>
+            ))}
+            {loysEnRetard.map(p => (
+              <div key={p.id} style={{ ...G.card, borderColor: `${C.red}40`, background: `${C.red}08`, display: "flex", gap: 12, alignItems: "center", padding: "14px 18px" }}>
+                <span style={{ fontSize: 18 }}>🔴</span>
+                <div><strong style={{ color: C.red }}>Loyer en retard</strong><span style={{ color: C.textMuted, marginLeft: 10, fontSize: 13 }}>{p.mois} — {loc.nom} — {fmt(p.montant)}</span></div>
+              </div>
+            ))}
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div style={G.card}>
+                <div style={G.sectionTitle}>Budget mensuel</div>
+                {[["Revenus", totalRev, C.green], ["Dépenses", totalDep, C.red], ["Cashflow", cashflow, cashflow >= 0 ? C.green : C.red]].map(([l, v, c]) => (
+                  <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
+                    <span style={{ color: C.textMuted, fontSize: 13 }}>{l}</span>
+                    <span style={{ color: c, fontWeight: "bold" }}>{fmt(v)}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={G.card}>
+                <div style={G.sectionTitle}>Hypothèque</div>
+                {[["Paiement mensuel", fmt(hypCalc.pmt), C.text], ["Intérêts / an", fmt(hypCalc.interetAn1), C.red], ["Capital / an", fmt(hypCalc.capitalAn1), C.green], ["Solde restant", fmt(hyp.solde), C.textDim]].map(([l, v, c]) => (
+                  <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
+                    <span style={{ color: C.textMuted, fontSize: 13 }}>{l}</span>
+                    <span style={{ color: c }}>{v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ═══ BUDGET ═══ */}
+        {tab === "budget" && (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 20 }}>
+              <StatCard label="Revenus / mois" value={fmt(totalRev)} color={C.green} />
+              <StatCard label="Dépenses / mois" value={fmt(totalDep)} color={C.red} />
+              <StatCard label="Cashflow" value={fmt(cashflow)} color={cashflow >= 0 ? C.green : C.red} />
+              <StatCard label="Cashflow annuel" value={fmt(cashflow * 12)} color={C.gold} />
+            </div>
+            <div style={G.card}>
+              <div style={G.sectionTitle}>📈 Revenus</div>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr><th style={G.th}>Description</th><th style={G.th}>Montant / mois</th><th style={G.th}></th></tr></thead>
+                <tbody>
+                  {budget.revenus.map(r => (
+                    <tr key={r.id}>
+                      <td style={G.td}><input style={{ ...G.input, background: "transparent", border: "none", padding: 0 }} value={r.label} onChange={e => updB("revenus", r.id, "label", e.target.value)} /></td>
+                      <td style={G.td}><NumInp value={r.montant} onChange={v => updB("revenus", r.id, "montant", v)} /></td>
+                      <td style={G.td}><button style={G.btnDanger} onClick={() => delBI("revenus", r.id)}>×</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <button style={G.btnAdd} onClick={() => addBI("revenus")}>+ Ajouter un revenu</button>
+            </div>
+            <div style={G.card}>
+              <div style={G.sectionTitle}>📉 Dépenses</div>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr><th style={G.th}>Description</th><th style={G.th}>Catégorie</th><th style={G.th}>Montant / mois</th><th style={G.th}></th></tr></thead>
+                <tbody>
+                  {budget.depenses.map(d => (
+                    <tr key={d.id}>
+                      <td style={G.td}><input style={{ ...G.input, background: "transparent", border: "none", padding: 0 }} value={d.label} onChange={e => updB("depenses", d.id, "label", e.target.value)} /></td>
+                      <td style={G.td}>
+                        <select style={{ ...G.select, width: 120 }} value={d.cat} onChange={e => updB("depenses", d.id, "cat", e.target.value)}>
+                          {["fixe", "utilitaire", "entretien", "divers"].map(c => <option key={c}>{c}</option>)}
+                        </select>
+                      </td>
+                      <td style={G.td}><NumInp value={d.montant} onChange={v => updB("depenses", d.id, "montant", v)} /></td>
+                      <td style={G.td}><button style={G.btnDanger} onClick={() => delBI("depenses", d.id)}>×</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <button style={G.btnAdd} onClick={() => addBI("depenses")}>+ Ajouter une dépense</button>
+            </div>
+          </>
+        )}
+
+        {/* ═══ HYPOTHÈQUE ═══ */}
+        {tab === "hypotheque" && (
+          <>
+            <div style={G.card}>
+              <div style={G.sectionTitle}>Paramètres</div>
+              <div style={G.grid2}>
+                <NumInp label="Solde actuel ($)" value={hyp.solde} onChange={v => setHyp(p => ({ ...p, solde: v }))} />
+                <NumInp label="Valeur marchande ($)" value={hyp.valeurMarchande} onChange={v => setHyp(p => ({ ...p, valeurMarchande: v }))} />
+                <NumInp label="Taux d'intérêt (%)" value={hyp.taux} onChange={v => setHyp(p => ({ ...p, taux: v }))} decimals />
+                <NumInp label="Amortissement (années)" value={hyp.amortissement} onChange={v => setHyp(p => ({ ...p, amortissement: v }))} />
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 20 }}>
+              <StatCard label="Paiement mensuel" value={fmt(hypCalc.pmt)} color={C.text} />
+              <StatCard label="Capital / an" value={fmt(hypCalc.capitalAn1)} color={C.green} />
+              <StatCard label="Intérêts / an" value={fmt(hypCalc.interetAn1)} color={C.red} />
+              <StatCard label="Valeur nette" value={fmt(hypCalc.valeurNette)} color={C.gold} />
+            </div>
+            <div style={G.card}>
+              <div style={G.sectionTitle}>Tableau d'amortissement — 10 premières années</div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead><tr>{["Année", "Paiements annuels", "Intérêts", "Capital", "Solde restant"].map(h => <th key={h} style={G.th}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {hypCalc.table.map(row => (
+                      <tr key={row.annee}>
+                        <td style={G.td}>{row.annee}</td>
+                        <td style={G.td}>{fmt(row.pmt)}</td>
+                        <td style={{ ...G.td, color: C.red }}>{fmt(row.interet)}</td>
+                        <td style={{ ...G.td, color: C.green }}>{fmt(row.capital)}</td>
+                        <td style={G.td}>{fmt(row.solde)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ═══ LOCATAIRE ═══ */}
+        {tab === "locataire" && (
+          <>
+            <div style={G.card}>
+              <div style={G.sectionTitle}>Fiche locataire</div>
+              <div style={G.grid2}>
+                <Inp label="Nom complet" value={loc.nom} onChange={v => setLoc(p => ({ ...p, nom: v }))} />
+                <Inp label="Logement" value={loc.logement} onChange={v => setLoc(p => ({ ...p, logement: v }))} />
+                <Inp label="Téléphone" value={loc.tel} onChange={v => setLoc(p => ({ ...p, tel: v }))} />
+                <Inp label="Courriel" value={loc.email} onChange={v => setLoc(p => ({ ...p, email: v }))} />
+                <Inp label="Date d'entrée" type="date" value={loc.dateEntree} onChange={v => setLoc(p => ({ ...p, dateEntree: v }))} />
+                <Inp label="Renouvellement bail" type="date" value={loc.dateRenouvellement} onChange={v => setLoc(p => ({ ...p, dateRenouvellement: v }))} />
+                <NumInp label="Loyer actuel ($)" value={loc.loyerActuel} onChange={v => setLoc(p => ({ ...p, loyerActuel: v }))} />
+              </div>
+            </div>
+
+            <div style={G.card}>
+              <div style={G.sectionTitle}>Suivi des paiements</div>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr>{["Mois", "Montant", "Statut", "Note", ""].map(h => <th key={h} style={G.th}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {loc.paiements.map(p => (
+                    <tr key={p.id}>
+                      <td style={G.td}>{p.mois}</td>
+                      <td style={G.td}>{fmt(p.montant)}</td>
+                      <td style={G.td}><span style={G.badge(p.statut === "Payé" ? C.green : p.statut === "En retard" ? C.red : C.orange)}>{p.statut}</span></td>
+                      <td style={{ ...G.td, color: C.textMuted, fontSize: 12 }}>{p.note}</td>
+                      <td style={G.td}><button style={G.btnDanger} onClick={() => setLoc(pr => ({ ...pr, paiements: pr.paiements.filter(x => x.id !== p.id) }))}>×</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 10, alignItems: "flex-end" }}>
+                <Inp label="Mois (AAAA-MM)" value={newPaie.mois} onChange={v => setNP(p => ({ ...p, mois: v }))} />
+                <NumInp label="Montant ($)" value={newPaie.montant} onChange={v => setNP(p => ({ ...p, montant: v }))} />
+                <Sel label="Statut" value={newPaie.statut} onChange={v => setNP(p => ({ ...p, statut: v }))} options={["Payé", "En retard", "Partiel"]} />
+                <button style={{ ...G.btnGold, alignSelf: "flex-end" }} onClick={() => { setLoc(p => ({ ...p, paiements: [...p.paiements, { ...newPaie, id: Date.now() }] })); setNP({ mois: today().slice(0, 7), montant: loc.loyerActuel, statut: "Payé", note: "" }); }}>Ajouter</button>
+              </div>
+            </div>
+
+            <div style={G.card}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <div style={G.sectionTitle}>Historique hausses de loyer (TAL)</div>
+                <span style={{ fontSize: 12, color: C.gold, fontFamily: "monospace" }}>Taux TAL 2025 : 2.3%</span>
+              </div>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr>{["Année", "Avant", "Après", "Taux TAL", "Avis envoyé", ""].map(h => <th key={h} style={G.th}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {loc.hausses.map(h => (
+                    <tr key={h.id}>
+                      <td style={G.td}>{h.annee}</td>
+                      <td style={G.td}>{fmt(h.loyerAvant)}</td>
+                      <td style={G.td}>{fmt(h.loyerApres)}</td>
+                      <td style={{ ...G.td, color: h.tauxTAL <= 2.3 ? C.green : C.red }}>{h.tauxTAL}%</td>
+                      <td style={G.td}>{h.dateAvis}</td>
+                      <td style={G.td}><button style={G.btnDanger} onClick={() => setLoc(p => ({ ...p, hausses: p.hausses.filter(x => x.id !== h.id) }))}>×</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto", gap: 10, alignItems: "flex-end" }}>
+                <NumInp label="Année" value={newHausse.annee} onChange={v => setNH(p => ({ ...p, annee: v }))} />
+                <NumInp label="Loyer avant" value={newHausse.loyerAvant} onChange={v => setNH(p => ({ ...p, loyerAvant: v }))} />
+                <NumInp label="Loyer après" value={newHausse.loyerApres} onChange={v => setNH(p => ({ ...p, loyerApres: v }))} />
+                <Inp label="Date d'avis" type="date" value={newHausse.dateAvis} onChange={v => setNH(p => ({ ...p, dateAvis: v }))} />
+                <button style={{ ...G.btnGold, alignSelf: "flex-end" }} onClick={() => { if (newHausse.loyerApres) setLoc(p => ({ ...p, hausses: [...p.hausses, { ...newHausse, id: Date.now(), tauxTAL: 2.3 }] })); }}>+</button>
+              </div>
+              <div style={{ marginTop: 10, fontSize: 12, color: C.textMuted, background: C.surface2, borderRadius: 7, padding: "10px 14px" }}>
+                💡 L'avis de renouvellement doit être remis au locataire au moins 3 mois avant la fin du bail.
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ═══ TRAVAUX ═══ */}
+        {tab === "travaux" && (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12, marginBottom: 18 }}>
+              <StatCard label="Réalisés" value={fmt(travaux.filter(t => t.statut === "Terminé").reduce((s, t) => s + (+t.cout || 0), 0))} color={C.green} />
+              <StatCard label="Planifiés" value={fmt(travaux.filter(t => t.statut !== "Terminé" && t.statut !== "Annulé").reduce((s, t) => s + (+t.cout || 0), 0))} color={C.orange} />
+              <StatCard label="Déductibles" value={fmt(fiscal.travauxDed)} color={C.purple} />
+              <StatCard label="Nb travaux" value={`${travaux.length}`} color={C.blue} />
+            </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+              {["Tous", "Planifié", "En cours", "Terminé", "Annulé"].map(f => (
+                <button key={f} style={G.btnGhost(filterStatut === f)} onClick={() => setFS(f)}>{f}</button>
+              ))}
+              <button style={{ ...G.btnGold, marginLeft: "auto" }} onClick={() => setSTF(!showTF)}>{showTF ? "Annuler" : "+ Nouveau travail"}</button>
+            </div>
+            {showTF && (
+              <div style={{ ...G.card, borderColor: `${C.gold}44`, marginBottom: 16 }}>
+                <div style={G.sectionTitle}>Nouveau travail</div>
+                <div style={{ ...G.grid2, marginBottom: 12 }}>
+                  <Inp label="Titre *" value={newTravail.titre} onChange={v => setNT(p => ({ ...p, titre: v }))} />
+                  <Sel label="Catégorie" value={newTravail.cat} onChange={v => setNT(p => ({ ...p, cat: v }))} options={CATEGORIES_TRAVAUX} />
+                  <Inp label="Date" type="date" value={newTravail.date} onChange={v => setNT(p => ({ ...p, date: v }))} />
+                  <NumInp label="Coût ($)" value={newTravail.cout} onChange={v => setNT(p => ({ ...p, cout: v }))} />
+                  <Sel label="Statut" value={newTravail.statut} onChange={v => setNT(p => ({ ...p, statut: v }))} options={Object.keys(STATUS_COLORS)} />
+                  <Sel label="Logement" value={newTravail.logement} onChange={v => setNT(p => ({ ...p, logement: v }))} options={[{ v: "commun", l: "Commun" }, { v: "haut", l: "Logement haut" }, { v: "bas", l: "Logement bas" }]} />
+                  <Inp label="Entrepreneur" value={newTravail.entrepreneur} onChange={v => setNT(p => ({ ...p, entrepreneur: v }))} />
+                  <Inp label="Fin de garantie" type="date" value={newTravail.garantie} onChange={v => setNT(p => ({ ...p, garantie: v }))} />
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={G.label}>Notes</label>
+                  <textarea style={{ ...G.input, height: 60, resize: "vertical" }} value={newTravail.notes} onChange={e => setNT(p => ({ ...p, notes: e.target.value }))} />
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                  <input type="checkbox" checked={newTravail.deductible} onChange={e => setNT(p => ({ ...p, deductible: e.target.checked }))} id="ded" />
+                  <label htmlFor="ded" style={{ fontSize: 13, color: C.textDim, cursor: "pointer" }}>Dépense déductible (logement locatif)</label>
+                </div>
+                <button style={G.btnGold} onClick={addTravail}>Enregistrer</button>
+              </div>
+            )}
+            <div style={G.card}>
+              {(filterStatut === "Tous" ? travaux : travaux.filter(t => t.statut === filterStatut)).map(t => (
+                <div key={t.id} style={{ borderBottom: `1px solid ${C.border}`, padding: "14px 0", display: "grid", gridTemplateColumns: "1fr auto", gap: 10 }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 5 }}>
+                      <span style={{ fontWeight: "bold", fontSize: 15 }}>{t.titre}</span>
+                      <span style={G.badge(STATUS_COLORS[t.statut] || C.textMuted)}>{t.statut}</span>
+                      {t.deductible && <span style={G.badge(C.purple)}>déductible</span>}
+                      <span style={{ ...G.badge(C.textMuted), fontSize: 10 }}>{t.logement === "commun" ? "Commun" : `Logement ${t.logement}`}</span>
+                    </div>
+                    <div style={{ display: "flex", gap: 14, fontSize: 12, color: C.textMuted, flexWrap: "wrap" }}>
+                      <span>📁 {t.cat}</span><span>📅 {t.date}</span>
+                      {t.entrepreneur && <span>👷 {t.entrepreneur}</span>}
+                      {t.garantie && <span>🛡 Garantie: {t.garantie}</span>}
+                      <span style={{ color: C.gold }}>💰 {fmt(t.cout)}</span>
+                    </div>
+                    {t.notes && <div style={{ fontSize: 12, color: C.textMuted, marginTop: 4, fontStyle: "italic" }}>{t.notes}</div>}
+                  </div>
+                  <button style={G.btnDanger} onClick={() => setTravaux(p => p.filter(x => x.id !== t.id))}>×</button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* ═══ ÉNERGIE ═══ */}
+        {tab === "energie" && (
+          <>
+            <div style={G.card}>
+              <div style={G.sectionTitle}>Consommation Hydro-Québec mensuelle ($)</div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead><tr>{["Mois", "Logement haut", "Logement bas", "Total", ""].map(h => <th key={h} style={G.th}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {hydro.map((h, i) => (
+                      <tr key={h.mois}>
+                        <td style={G.td}>{h.mois}</td>
+                        <td style={G.td}>{fmt(h.haut)}</td>
+                        <td style={G.td}>{fmt(h.bas)}</td>
+                        <td style={{ ...G.td, color: C.gold }}>{fmt(h.haut + h.bas)}</td>
+                        <td style={G.td}><button style={G.btnDanger} onClick={() => setHydro(p => p.filter((_, j) => j !== i))}>×</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 10, alignItems: "flex-end" }}>
+                <Inp label="Mois (AAAA-MM)" value={newHydro.mois} onChange={v => setNHydro(p => ({ ...p, mois: v }))} />
+                <NumInp label="Logement haut ($)" value={newHydro.haut} onChange={v => setNHydro(p => ({ ...p, haut: v }))} />
+                <NumInp label="Logement bas ($)" value={newHydro.bas} onChange={v => setNHydro(p => ({ ...p, bas: v }))} />
+                <button style={{ ...G.btnGold, alignSelf: "flex-end" }} onClick={() => { if (newHydro.mois) { setHydro(p => [...p, newHydro]); setNHydro({ mois: today().slice(0, 7), haut: "", bas: "" }); } }}>Ajouter</button>
+              </div>
+            </div>
+
+            <div style={G.card}>
+              <div style={G.sectionTitle}>Tendance visuelle (6 derniers mois)</div>
+              {(() => {
+                const recent = hydro.slice(-6);
+                const max = Math.max(...recent.map(h => h.haut + h.bas), 1);
+                return recent.map(h => {
+                  const total = h.haut + h.bas;
+                  const pct = Math.round((total / max) * 100);
+                  return (
+                    <div key={h.mois} style={{ marginBottom: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.textMuted, marginBottom: 5 }}>
+                        <span>{h.mois}</span><span style={{ color: C.gold }}>{fmt(total)}</span>
+                      </div>
+                      <div style={{ height: 8, background: C.surface2, borderRadius: 4, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg,${C.blue},${C.gold})`, borderRadius: 4 }} />
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            <div style={G.card}>
+              <div style={G.sectionTitle}>💚 Subventions écoénergétiques disponibles</div>
+              <div style={{ display: "grid", gap: 10 }}>
+                {SUBVENTIONS.map(s => (
+                  <div key={s.nom} style={{ background: C.surface2, borderRadius: 8, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 14, color: C.text }}>{s.nom}</div>
+                      <div style={{ fontSize: 11, color: C.textMuted, fontFamily: "monospace", marginTop: 2 }}>{s.org}</div>
+                    </div>
+                    <span style={{ color: C.green, fontSize: 15, fontWeight: "bold" }}>{s.montant}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ═══ FISCAL ═══ */}
+        {tab === "fiscal" && (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 12, marginBottom: 20 }}>
+              <StatCard label="Taxes municipales / an" value={fmt(taxesAhuntsic.municipal)} color={C.orange} />
+              <StatCard label="Taxe scolaire / an" value={fmt(taxesAhuntsic.scolaire)} color={C.blue} />
+              <StatCard label="Total taxes / an" value={fmt(taxesAhuntsic.total)} color={C.gold} />
+              <StatCard label="Déductible 50% locatif" value={fmt(taxesAhuntsic.totalDed)} color={C.green} />
+              <StatCard label="Déductions dépenses / an" value={fmt(fiscal.deductible)} color={C.purple} />
+              <StatCard label="Taxe de bienvenue" value={fmt(taxeBienvenue)} color={C.red} />
+            </div>
+
+            <div style={G.card}>
+              <div style={G.sectionTitle}>🧾 Déductions fiscales — Logement locatif</div>
+              <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 14 }}>Comme propriétaire-occupant d'un duplex, vous pouvez déduire <strong style={{ color: C.gold }}>50%</strong> des dépenses liées à l'immeuble sur votre déclaration de revenus.</div>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr><th style={G.th}>Dépense</th><th style={G.th}>Annuel</th><th style={G.th}>50% déductible</th></tr></thead>
+                <tbody>
+                  {budget.depenses.map(d => (
+                    <tr key={d.id}>
+                      <td style={G.td}>{d.label}</td>
+                      <td style={G.td}>{fmt(d.montant * 12)}</td>
+                      <td style={{ ...G.td, color: C.green }}>{fmt(d.montant * 12 * 0.5)}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td style={{ ...G.td, fontWeight: "bold", color: C.gold }}>TOTAL</td>
+                    <td style={{ ...G.td, fontWeight: "bold" }}>{fmt(fiscal.depAn)}</td>
+                    <td style={{ ...G.td, fontWeight: "bold", color: C.green }}>{fmt(fiscal.deductible)}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div style={{ marginTop: 10, fontSize: 12, color: C.textMuted, background: C.surface2, borderRadius: 7, padding: "10px 14px" }}>
+                💡 Les travaux et rénovations sur la partie locative sont également déductibles. Consultez un comptable pour l'amortissement vs dépense courante.
+              </div>
+            </div>
+
+            <div style={G.card}>
+              <div style={G.sectionTitle}>🏛 Taxe de bienvenue — Valeur marchande: {fmt(hyp.valeurMarchande)}</div>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr><th style={G.th}>Tranche</th><th style={G.th}>Taux</th></tr></thead>
+                <tbody>
+                  {[["0 $ — 58 900 $", "0,5%"], ["58 901 $ — 294 000 $", "1,0%"], ["294 001 $ — 500 000 $", "1,5%"], ["500 001 $ — 1 000 000 $", "2,0%"], ["> 1 000 000 $", "2,5%"]].map(([t, r]) => (
+                    <tr key={t}><td style={G.td}>{t}</td><td style={G.td}>{r}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ marginTop: 14, padding: "14px 18px", background: `${C.orange}10`, border: `1px solid ${C.orange}30`, borderRadius: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ color: C.textMuted }}>Montant estimé pour votre duplex</span>
+                <span style={{ fontSize: 22, color: C.orange }}>{fmt(taxeBienvenue)}</span>
+              </div>
+              <div style={{ marginTop: 8, fontSize: 12, color: C.textMuted }}>Note: Montréal peut imposer une taxe additionnelle sur les immeubles {">"} 500 000 $. Vérifiez avec votre notaire.</div>
+            </div>
+
+            {/* Taxes Ahuntsic réelles */}
+            <div style={G.card}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <div style={G.sectionTitle}>🏛 Taxes Ahuntsic-Cartierville 2025 — Valeur: {fmt(hyp.valeurMarchande)}</div>
+                <span style={{ fontSize: 11, color: C.textMuted, fontFamily: "monospace" }}>Taux officiels Ville de Montréal</span>
+              </div>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr><th style={G.th}>Composante</th><th style={G.th}>Taux ($/100$)</th><th style={G.th}>Montant / an</th><th style={G.th}>/ mois</th></tr></thead>
+                <tbody>
+                  {[
+                    ["Taxe foncière générale",         "0,4638", taxesAhuntsic.fonciere],
+                    ["Taxe ARTM (transports)",         "0,0072", taxesAhuntsic.artm],
+                    ["Taxe voirie",                    "0,0024", taxesAhuntsic.voirie],
+                    ["Arrondissement — services",      "0,0422", taxesAhuntsic.services],
+                    ["Arrondissement — investissements","0,0306", taxesAhuntsic.invest],
+                  ].map(([l, t, v]) => (
+                    <tr key={l}>
+                      <td style={G.td}>{l}</td>
+                      <td style={{ ...G.td, fontFamily: "monospace", fontSize: 12, color: C.textMuted }}>{t}</td>
+                      <td style={G.td}>{fmt(v)}</td>
+                      <td style={{ ...G.td, color: C.textMuted, fontSize: 12 }}>{fmt(v / 12)}</td>
+                    </tr>
+                  ))}
+                  <tr style={{ borderTop: `2px solid ${C.border}` }}>
+                    <td style={{ ...G.td, fontWeight: "bold", color: C.gold }}>Sous-total municipal</td>
+                    <td style={{ ...G.td, fontFamily: "monospace", fontSize: 12, color: C.textMuted }}>0,5462</td>
+                    <td style={{ ...G.td, fontWeight: "bold", color: C.gold }}>{fmt(taxesAhuntsic.municipal)}</td>
+                    <td style={{ ...G.td, color: C.gold, fontSize: 12 }}>{fmt(taxesAhuntsic.municipal / 12)}</td>
+                  </tr>
+                  <tr>
+                    <td style={G.td}>Taxe scolaire 2025-2026 <span style={{ fontSize: 11, color: C.textMuted }}>(exemption 25 000 $)</span></td>
+                    <td style={{ ...G.td, fontFamily: "monospace", fontSize: 12, color: C.textMuted }}>0,08423</td>
+                    <td style={G.td}>{fmt(taxesAhuntsic.scolaire)}</td>
+                    <td style={{ ...G.td, color: C.textMuted, fontSize: 12 }}>{fmt(taxesAhuntsic.scolaire / 12)}</td>
+                  </tr>
+                  <tr style={{ borderTop: `2px solid ${C.border}`, background: `${C.gold}08` }}>
+                    <td style={{ ...G.td, fontWeight: "bold", fontSize: 15, color: C.gold }}>TOTAL TAXES</td>
+                    <td style={G.td}></td>
+                    <td style={{ ...G.td, fontWeight: "bold", fontSize: 18, color: C.gold }}>{fmt(taxesAhuntsic.total)}</td>
+                    <td style={{ ...G.td, color: C.gold }}>{fmt(taxesAhuntsic.total / 12)}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div style={{ marginTop: 10, fontSize: 12, color: C.textMuted, background: C.surface2, borderRadius: 7, padding: "10px 14px" }}>
+                ⚠️ Calculé sur la valeur marchande. La Ville taxe selon la <strong>valeur au rôle d'évaluation</strong>, qui peut différer. Le nouveau rôle 2026-2027-2028 est en vigueur depuis septembre 2025.
+              </div>
+            </div>
+
+            {/* 50% locatif */}
+            <div style={{ ...G.card, borderColor: `${C.green}30` }}>
+              <div style={G.sectionTitle}>🏠 Déduction 50% — Logement locatif</div>
+              <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 16 }}>
+                Vous habitez un logement et louez l'autre : <strong style={{ color: C.gold }}>50% des taxes</strong> sont déductibles comme dépense de location (annexe L au Québec, T776 au fédéral).
+              </div>
+              <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16 }}>
+                <thead><tr><th style={G.th}>Taxe</th><th style={G.th}>Total annuel</th><th style={G.th}>Votre part (50%)</th><th style={G.th}>Part déductible (50%)</th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td style={G.td}>Taxes municipales</td>
+                    <td style={G.td}>{fmt(taxesAhuntsic.municipal)}</td>
+                    <td style={G.td}>{fmt(taxesAhuntsic.municipal * 0.5)}</td>
+                    <td style={{ ...G.td, color: C.green }}>{fmt(taxesAhuntsic.municipalDed)}</td>
+                  </tr>
+                  <tr>
+                    <td style={G.td}>Taxe scolaire</td>
+                    <td style={G.td}>{fmt(taxesAhuntsic.scolaire)}</td>
+                    <td style={G.td}>{fmt(taxesAhuntsic.scolaire * 0.5)}</td>
+                    <td style={{ ...G.td, color: C.green }}>{fmt(taxesAhuntsic.scolaireDed)}</td>
+                  </tr>
+                  <tr style={{ borderTop: `2px solid ${C.border}` }}>
+                    <td style={{ ...G.td, fontWeight: "bold", color: C.gold }}>TOTAL</td>
+                    <td style={{ ...G.td, fontWeight: "bold" }}>{fmt(taxesAhuntsic.total)}</td>
+                    <td style={{ ...G.td, fontWeight: "bold" }}>{fmt(taxesAhuntsic.total * 0.5)}</td>
+                    <td style={{ ...G.td, fontWeight: "bold", color: C.green }}>{fmt(taxesAhuntsic.totalDed)}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div style={G.sectionTitle}>💰 Économie d'impôt estimée sur les taxes seules</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                {[
+                  ["Taux 37%", "Revenus ~80 000 $", taxesAhuntsic.eco37, C.blue],
+                  ["Taux 45%", "Revenus ~110 000 $", taxesAhuntsic.eco45, C.purple],
+                  ["Taux 53%", "Revenus ~160 000 $+", taxesAhuntsic.eco53, C.green],
+                ].map(([t, r, v, c]) => (
+                  <div key={t} style={{ background: C.surface2, borderRadius: 8, padding: "12px 14px", textAlign: "center" }}>
+                    <div style={{ fontSize: 11, color: C.textMuted, fontFamily: "monospace" }}>{t}</div>
+                    <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 6 }}>{r}</div>
+                    <div style={{ fontSize: 20, color: c, fontWeight: "bold" }}>{fmt(v)}</div>
+                    <div style={{ fontSize: 11, color: C.textMuted }}>économisé / an</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 12, fontSize: 12, color: C.textMuted, background: C.surface2, borderRadius: 7, padding: "10px 14px" }}>
+                💡 Ces économies s'appliquent aux taxes seulement. En ajoutant les intérêts hypothécaires, l'assurance et l'entretien (tous déductibles à 50%), l'économie fiscale totale est significativement plus élevée.
+              </div>
+            </div>
+
+            <div style={G.card}>
+              <div style={G.sectionTitle}>📅 Calendrier fiscal</div>
+              {[
+                ["8 juin 2026",       "🔑 Acte de vente chez le notaire — Duplex Ahuntsic"],
+                ["1er août 2026",     "🏠 Entrée de Lya Véga Marcotte — Logement du haut"],
+                ["30 avril",          "Date limite déclaration de revenus (particuliers)"],
+                ["15 juin",           "Date limite si travailleur autonome"],
+                ["31 mars",           "Avis de renouvellement bail (3 mois avant fin)"],
+                ["Janvier / Juillet", "Taxes municipales — 2 versements"],
+                ["Automne",           "Taxes scolaires — 1 versement"],
+              ].map(([d, l]) => (
+                <div key={l} style={{ display: "flex", gap: 14, padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ color: C.gold, fontFamily: "monospace", fontSize: 12, minWidth: 120, paddingTop: 2 }}>{d}</span>
+                  <span style={{ fontSize: 13, color: C.textDim }}>{l}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* ═══ DOCUMENTS ═══ */}
+        {tab === "documents" && (
+          <>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
+              <button style={G.btnGold} onClick={() => setSDF(!showDF)}>{showDF ? "Annuler" : "+ Ajouter un document"}</button>
+            </div>
+            {showDF && (
+              <div style={{ ...G.card, borderColor: `${C.gold}44`, marginBottom: 16 }}>
+                <div style={G.sectionTitle}>Nouveau document</div>
+                <div style={{ ...G.grid2, marginBottom: 12 }}>
+                  <Inp label="Nom du document *" value={newDoc.nom} onChange={v => setND(p => ({ ...p, nom: v }))} />
+                  <Sel label="Type" value={newDoc.type} onChange={v => setND(p => ({ ...p, type: v }))} options={["Bail", "Assurance", "Légal", "Inspection", "Garantie", "Permis", "Autre"]} />
+                  <Inp label="Date d'expiration" type="date" value={newDoc.dateExpiration} onChange={v => setND(p => ({ ...p, dateExpiration: v }))} />
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 22 }}>
+                    <input type="checkbox" checked={newDoc.alerte} onChange={e => setND(p => ({ ...p, alerte: e.target.checked }))} id="alertD" />
+                    <label htmlFor="alertD" style={{ fontSize: 13, color: C.textDim, cursor: "pointer" }}>Alerte 90 jours avant expiration</label>
+                  </div>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={G.label}>Notes</label>
+                  <textarea style={{ ...G.input, height: 60, resize: "vertical" }} value={newDoc.notes} onChange={e => setND(p => ({ ...p, notes: e.target.value }))} />
+                </div>
+                <button style={G.btnGold} onClick={addDoc}>Enregistrer</button>
+              </div>
+            )}
+            <div style={G.card}>
+              {docs.map(d => {
+                const j = daysUntil(d.dateExpiration);
+                const alerte = d.alerte && j !== null && j <= 90 && j >= 0;
+                return (
+                  <div key={d.id} style={{ borderBottom: `1px solid ${C.border}`, padding: "14px 0", display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                        <span style={{ fontSize: 15, fontWeight: "bold", color: alerte ? C.orange : C.text }}>{d.nom}</span>
+                        <span style={G.badge(C.blue)}>{d.type}</span>
+                        {alerte && <span style={G.badge(C.orange)}>⚠ {j}j restants</span>}
+                        {d.dateExpiration && !alerte && j !== null && <span style={{ fontSize: 11, color: C.textMuted, fontFamily: "monospace" }}>expire {d.dateExpiration}</span>}
+                        {!d.dateExpiration && <span style={{ fontSize: 11, color: C.textMuted }}>sans expiration</span>}
+                      </div>
+                      {d.notes && <div style={{ fontSize: 12, color: C.textMuted, fontStyle: "italic" }}>{d.notes}</div>}
+                    </div>
+                    <button style={G.btnDanger} onClick={() => setDocs(p => p.filter(x => x.id !== d.id))}>×</button>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* ═══ OFFRES ═══ */}
+        {tab === "offres" && (
+          <>
+            <div style={{ ...G.card, borderColor: `${C.gold}30`, background: `${C.gold}06`, marginBottom: 16, padding: "12px 18px" }}>
+              <span style={{ color: C.gold }}>💡 </span>
+              <span style={{ color: C.textMuted, fontSize: 13 }}>Tarifs estimés pour Ahuntsic, Montréal. Vérifiez toujours directement avec le fournisseur.</span>
+            </div>
+            {OFFRES.map(bloc => {
+              const sorted = [...bloc.items].sort((a, b) => a.prix - b.prix);
+              const saving = sorted[sorted.length - 1].prix - sorted[0].prix;
+              return (
+                <div key={bloc.cat} style={G.card}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                    <div style={G.sectionTitle}>{bloc.cat}</div>
+                    {saving > 0 && <span style={{ fontSize: 12, color: C.green, fontFamily: "monospace" }}>Économie possible: {fmt(saving)}/mois</span>}
+                  </div>
+                  {sorted.map((f, i) => (
+                    <div key={f.nom} style={{ padding: "12px 14px", marginBottom: 6, borderRadius: 8, background: i === 0 ? `${C.green}0c` : C.surface2, border: `1px solid ${i === 0 ? C.green + "40" : C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <span style={{ color: i === 0 ? C.green : C.text, fontWeight: i === 0 ? "bold" : "normal" }}>{i === 0 ? "🏆 " : ""}{f.nom}</span>
+                        <div style={{ fontSize: 12, color: C.textMuted, marginTop: 3 }}>{f.detail}</div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 20, color: i === 0 ? C.green : C.text }}>{fmt(f.prix)}</div>
+                        <div style={{ fontSize: 11, color: C.textMuted, fontFamily: "monospace" }}>/mois</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </>
+        )}
+      </div>
+
+      {/* ── Modal Backup ── */}
+      {showBackup && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 28, width: "100%", maxWidth: 600 }}>
+            <div style={{ fontSize: 15, color: C.text, marginBottom: 6, fontWeight: "bold" }}>
+              {backupText && backupText.startsWith("{") ? "📤 Exporter — Copiez ce texte" : "📥 Importer — Collez votre sauvegarde"}
+            </div>
+            <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 14 }}>
+              {backupText && backupText.startsWith("{")
+                ? "Sélectionnez tout (Ctrl+A), copiez (Ctrl+C) et gardez ce texte dans un fichier .txt ou .json."
+                : "Collez ici le texte d'une sauvegarde précédemment exportée, puis cliquez Importer."}
+            </div>
+            <textarea
+              style={{ ...G.input, height: 260, resize: "vertical", fontFamily: "monospace", fontSize: 11 }}
+              value={backupText}
+              onChange={e => setBackupText(e.target.value)}
+              placeholder='Collez votre JSON ici...'
+              spellCheck={false}
+            />
+            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              {backupText && backupText.startsWith("{") ? (
+                <button style={G.btnGold} onClick={() => { navigator.clipboard?.writeText(backupText); setSavedMsg("✓ Copié!"); setTimeout(()=>setSavedMsg(""),2000); }}>
+                  Copier tout
+                </button>
+              ) : (
+                <button style={G.btnGold} onClick={importData}>Importer</button>
+              )}
+              <button style={{ ...G.btnGhost(false), marginLeft: "auto" }} onClick={() => { setShowBackup(false); setBackupText(""); }}>Fermer</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(DuplexApp, null));
+</script>
+
+<!-- Step 4: Fallback if Babel CDN fails - try alternate CDN -->
+<script>
+window.addEventListener('load', function() {
+  setTimeout(function() {
+    if (!document.querySelector('[data-babel-processed]') && 
+        typeof Babel === 'undefined') {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js';
+      s.onload = function() { Babel.transformScriptTags(); };
+      document.head.appendChild(s);
+    }
+  }, 3000);
+});
+</script>
+
+</body>
+</html>
